@@ -28,24 +28,27 @@ namespace php {
 // Hardcode spaces per indentation.
 const std::string Indent = "    ";
 class PhpGenerator : public BaseGenerator {
- public:
+public:
   PhpGenerator(const Parser &parser, const std::string &path,
                const std::string &file_name)
       : BaseGenerator(parser, path, file_name, "\\", "\\", "php") {}
-  bool generate() {
-    if (!GenerateEnums()) return false;
-    if (!GenerateStructs()) return false;
+  bool generate() override {
+    if (!GenerateEnums())
+      return false;
+    if (!GenerateStructs())
+      return false;
     return true;
   }
 
- private:
+private:
   bool GenerateEnums() {
     for (auto it = parser_.enums_.vec.begin(); it != parser_.enums_.vec.end();
          ++it) {
       auto &enum_def = **it;
       std::string enumcode;
       GenEnum(enum_def, &enumcode);
-      if (!SaveType(enum_def, enumcode, false)) return false;
+      if (!SaveType(enum_def, enumcode, false))
+        return false;
     }
     return true;
   }
@@ -56,7 +59,8 @@ class PhpGenerator : public BaseGenerator {
       auto &struct_def = **it;
       std::string declcode;
       GenStruct(struct_def, &declcode);
-      if (!SaveType(struct_def, declcode, true)) return false;
+      if (!SaveType(struct_def, declcode, true))
+        return false;
     }
     return true;
   }
@@ -84,7 +88,8 @@ class PhpGenerator : public BaseGenerator {
   // Save out the generated code for a Php Table type.
   bool SaveType(const Definition &def, const std::string &classcode,
                 bool needs_imports) {
-    if (!classcode.length()) return true;
+    if (!classcode.length())
+      return true;
 
     std::string code = "";
     BeginFile(FullNamespace("\\", *def.defined_namespace), needs_imports,
@@ -346,41 +351,42 @@ class PhpGenerator : public BaseGenerator {
         ConvertCase(GenTypeGet(field.value.type), Case::kUpperCamel) + "();\n";
 
     switch (field.value.type.base_type) {
-      case BASE_TYPE_STRUCT:
-        if (struct_def.fixed) {
-          code += Indent + Indent;
-          code += "return $o != 0 ? $obj->init($this->bb_pos +" +
-                  NumToString(field.value.offset) + ", $this->bb) : null;\n";
+    case BASE_TYPE_STRUCT:
+      if (struct_def.fixed) {
+        code += Indent + Indent;
+        code += "return $o != 0 ? $obj->init($this->bb_pos +" +
+                NumToString(field.value.offset) + ", $this->bb) : null;\n";
+      } else {
+        code += Indent + Indent + "return $o != 0 ? $obj->init(";
+        code += field.value.type.struct_def->fixed
+                    ? "$o + $this->bb_pos"
+                    : "$this->__indirect($o + $this->bb_pos)";
+        code += ", $this->bb) : null;\n";
+      }
+      break;
+    case BASE_TYPE_STRING:
+      code += "// base_type_string\n";
+      // TODO(chobie): do we need this?
+      break;
+    case BASE_TYPE_VECTOR:
+      if (vectortype.base_type == BASE_TYPE_STRUCT) {
+        code += Indent + Indent + "return $o != 0 ? $obj->init(";
+        if (vectortype.struct_def->fixed) {
+          code += "$this->__vector($o) + $j *";
+          code += NumToString(InlineSize(vectortype));
         } else {
-          code += Indent + Indent + "return $o != 0 ? $obj->init(";
-          code += field.value.type.struct_def->fixed
-                      ? "$o + $this->bb_pos"
-                      : "$this->__indirect($o + $this->bb_pos)";
-          code += ", $this->bb) : null;\n";
+          code += "$this->__indirect($this->__vector($o) + $j * ";
+          code += NumToString(InlineSize(vectortype)) + ")";
         }
-        break;
-      case BASE_TYPE_STRING:
-        code += "// base_type_string\n";
-        // TODO(chobie): do we need this?
-        break;
-      case BASE_TYPE_VECTOR:
-        if (vectortype.base_type == BASE_TYPE_STRUCT) {
-          code += Indent + Indent + "return $o != 0 ? $obj->init(";
-          if (vectortype.struct_def->fixed) {
-            code += "$this->__vector($o) + $j *";
-            code += NumToString(InlineSize(vectortype));
-          } else {
-            code += "$this->__indirect($this->__vector($o) + $j * ";
-            code += NumToString(InlineSize(vectortype)) + ")";
-          }
-          code += ", $this->bb) : null;\n";
-        }
-        break;
-      case BASE_TYPE_UNION:
-        code += Indent + Indent + "return $o != 0 ? $this->";
-        code += GenGetter(field.value.type) + "($obj, $o); null;\n";
-        break;
-      default: break;
+        code += ", $this->bb) : null;\n";
+      }
+      break;
+    case BASE_TYPE_UNION:
+      code += Indent + Indent + "return $o != 0 ? $this->";
+      code += GenGetter(field.value.type) + "($obj, $o); null;\n";
+      break;
+    default:
+      break;
     }
 
     code += Indent + "}\n\n";
@@ -517,9 +523,12 @@ class PhpGenerator : public BaseGenerator {
          it != struct_def.fields.vec.end(); ++it) {
       auto &field = **it;
 
-      if (field.deprecated) continue;
+      if (field.deprecated)
+        continue;
       code += "$" + field.name;
-      if (!(it == (--struct_def.fields.vec.end()))) { code += ", "; }
+      if (!(it == (--struct_def.fields.vec.end()))) {
+        code += ", ";
+      }
     }
     code += ")\n";
     code += Indent + "{\n";
@@ -529,7 +538,8 @@ class PhpGenerator : public BaseGenerator {
     for (auto it = struct_def.fields.vec.begin();
          it != struct_def.fields.vec.end(); ++it) {
       auto &field = **it;
-      if (field.deprecated) continue;
+      if (field.deprecated)
+        continue;
 
       code += Indent + Indent + "self::add";
       code += ConvertCase(field.name, Case::kUpperCamel) + "($builder, $" +
@@ -688,27 +698,32 @@ class PhpGenerator : public BaseGenerator {
       }
     } else {
       switch (field.value.type.base_type) {
-        case BASE_TYPE_STRUCT:
-          if (struct_def.fixed) {
-            GetStructFieldOfStruct(field, code_ptr);
-          } else {
-            GetStructFieldOfTable(field, code_ptr);
-          }
-          break;
-        case BASE_TYPE_STRING: GetStringField(field, code_ptr); break;
-        case BASE_TYPE_VECTOR: {
-          auto vectortype = field.value.type.VectorType();
-          if (vectortype.base_type == BASE_TYPE_UNION) {
-            GetMemberOfVectorOfUnion(field, code_ptr);
-          } else if (vectortype.base_type == BASE_TYPE_STRUCT) {
-            GetMemberOfVectorOfStruct(struct_def, field, code_ptr);
-          } else {
-            GetMemberOfVectorOfNonStruct(field, code_ptr);
-          }
-          break;
+      case BASE_TYPE_STRUCT:
+        if (struct_def.fixed) {
+          GetStructFieldOfStruct(field, code_ptr);
+        } else {
+          GetStructFieldOfTable(field, code_ptr);
         }
-        case BASE_TYPE_UNION: GetUnionField(field, code_ptr); break;
-        default: FLATBUFFERS_ASSERT(0);
+        break;
+      case BASE_TYPE_STRING:
+        GetStringField(field, code_ptr);
+        break;
+      case BASE_TYPE_VECTOR: {
+        auto vectortype = field.value.type.VectorType();
+        if (vectortype.base_type == BASE_TYPE_UNION) {
+          GetMemberOfVectorOfUnion(field, code_ptr);
+        } else if (vectortype.base_type == BASE_TYPE_STRUCT) {
+          GetMemberOfVectorOfStruct(struct_def, field, code_ptr);
+        } else {
+          GetMemberOfVectorOfNonStruct(field, code_ptr);
+        }
+        break;
+      }
+      case BASE_TYPE_UNION:
+        GetUnionField(field, code_ptr);
+        break;
+      default:
+        FLATBUFFERS_ASSERT(0);
       }
     }
     if (IsVector(field.value.type)) {
@@ -726,7 +741,8 @@ class PhpGenerator : public BaseGenerator {
     for (auto it = struct_def.fields.vec.begin();
          it != struct_def.fields.vec.end(); ++it) {
       auto &field = **it;
-      if (field.deprecated) continue;
+      if (field.deprecated)
+        continue;
 
       auto offset = it - struct_def.fields.vec.begin();
       if (field.value.type.base_type == BASE_TYPE_UNION) {
@@ -741,7 +757,9 @@ class PhpGenerator : public BaseGenerator {
       } else {
         BuildFieldOfTable(field, offset, code_ptr);
       }
-      if (IsVector(field.value.type)) { BuildVectorOfTable(field, code_ptr); }
+      if (IsVector(field.value.type)) {
+        BuildVectorOfTable(field, code_ptr);
+      }
     }
 
     GetEndOffsetOnTable(struct_def, code_ptr);
@@ -749,7 +767,8 @@ class PhpGenerator : public BaseGenerator {
 
   // Generate struct or table methods.
   void GenStruct(const StructDef &struct_def, std::string *code_ptr) {
-    if (struct_def.generated) return;
+    if (struct_def.generated)
+      return;
 
     GenComment(struct_def.doc_comment, code_ptr, nullptr);
     BeginClass(struct_def, code_ptr);
@@ -798,7 +817,8 @@ class PhpGenerator : public BaseGenerator {
     for (auto it = struct_def.fields.vec.begin();
          it != struct_def.fields.vec.end(); ++it) {
       auto &field = **it;
-      if (field.deprecated) continue;
+      if (field.deprecated)
+        continue;
 
       GenStructAccessor(struct_def, field, code_ptr);
     }
@@ -815,7 +835,8 @@ class PhpGenerator : public BaseGenerator {
 
   // Generate enum declarations.
   static void GenEnum(const EnumDef &enum_def, std::string *code_ptr) {
-    if (enum_def.generated) return;
+    if (enum_def.generated)
+      return;
 
     GenComment(enum_def.doc_comment, code_ptr, nullptr);
     BeginEnum(enum_def.name, code_ptr);
@@ -848,11 +869,16 @@ class PhpGenerator : public BaseGenerator {
   // Returns the function name that is able to read a value of the given type.
   static std::string GenGetter(const Type &type) {
     switch (type.base_type) {
-      case BASE_TYPE_STRING: return "__string";
-      case BASE_TYPE_STRUCT: return "__struct";
-      case BASE_TYPE_UNION: return "__union";
-      case BASE_TYPE_VECTOR: return GenGetter(type.VectorType());
-      default: return "Get";
+    case BASE_TYPE_STRING:
+      return "__string";
+    case BASE_TYPE_STRUCT:
+      return "__struct";
+    case BASE_TYPE_UNION:
+      return "__union";
+    case BASE_TYPE_VECTOR:
+      return GenGetter(type.VectorType());
+    default:
+      return "Get";
     }
   }
 
@@ -884,30 +910,37 @@ class PhpGenerator : public BaseGenerator {
     }
 
     switch (value.type.base_type) {
-      case BASE_TYPE_BOOL: return value.constant == "0" ? "false" : "true";
+    case BASE_TYPE_BOOL:
+      return value.constant == "0" ? "false" : "true";
 
-      case BASE_TYPE_STRING: return "null";
+    case BASE_TYPE_STRING:
+      return "null";
 
-      case BASE_TYPE_LONG:
-      case BASE_TYPE_ULONG:
-        if (value.constant != "0") {
-          int64_t constant = StringToInt(value.constant.c_str());
-          return NumToString(constant);
-        }
-        return "0";
+    case BASE_TYPE_LONG:
+    case BASE_TYPE_ULONG:
+      if (value.constant != "0") {
+        int64_t constant = StringToInt(value.constant.c_str());
+        return NumToString(constant);
+      }
+      return "0";
 
-      default: return value.constant;
+    default:
+      return value.constant;
     }
   }
 
   static std::string GenTypePointer(const Type &type) {
     switch (type.base_type) {
-      case BASE_TYPE_STRING: return "string";
-      case BASE_TYPE_VECTOR: return GenTypeGet(type.VectorType());
-      case BASE_TYPE_STRUCT: return type.struct_def->name;
-      case BASE_TYPE_UNION:
-        // fall through
-      default: return "Table";
+    case BASE_TYPE_STRING:
+      return "string";
+    case BASE_TYPE_VECTOR:
+      return GenTypeGet(type.VectorType());
+    case BASE_TYPE_STRUCT:
+      return type.struct_def->name;
+    case BASE_TYPE_UNION:
+      // fall through
+    default:
+      return "Table";
     }
   }
 
@@ -935,11 +968,11 @@ class PhpGenerator : public BaseGenerator {
     code += Indent + "}\n";
   }
 };
-}  // namespace php
+} // namespace php
 
 bool GeneratePhp(const Parser &parser, const std::string &path,
                  const std::string &file_name) {
   php::PhpGenerator generator(parser, path, file_name);
   return generator.generate();
 }
-}  // namespace flatbuffers
+} // namespace flatbuffers

@@ -28,7 +28,7 @@ namespace flatbuffers {
 namespace lua {
 
 // Hardcode spaces per indentation.
-const CommentConfig def_comment = { nullptr, "--", nullptr };
+const CommentConfig def_comment = {nullptr, "--", nullptr};
 const char *Indent = "    ";
 const char *Comment = "-- ";
 const char *End = "end\n";
@@ -38,16 +38,15 @@ const char *SelfDataPos = "self.view.pos";
 const char *SelfDataBytes = "self.view.bytes";
 
 class LuaGenerator : public BaseGenerator {
- public:
+public:
   LuaGenerator(const Parser &parser, const std::string &path,
                const std::string &file_name)
       : BaseGenerator(parser, path, file_name, "" /* not used */,
                       "" /* not used */, "lua") {
     static const char *const keywords[] = {
-      "and",      "break",  "do",   "else", "elseif", "end",  "false", "for",
-      "function", "goto",   "if",   "in",   "local",  "nil",  "not",   "or",
-      "repeat",   "return", "then", "true", "until",  "while"
-    };
+        "and",      "break",  "do",   "else", "elseif", "end",  "false", "for",
+        "function", "goto",   "if",   "in",   "local",  "nil",  "not",   "or",
+        "repeat",   "return", "then", "true", "until",  "while"};
     keywords_.insert(std::begin(keywords), std::end(keywords));
   }
 
@@ -189,7 +188,9 @@ class LuaGenerator : public BaseGenerator {
     code += OffsetPrefix(field);
     getter += std::string("o + ") + SelfDataPos + ")";
     auto is_bool = field.value.type.base_type == BASE_TYPE_BOOL;
-    if (is_bool) { getter = "(" + getter + " ~= 0)"; }
+    if (is_bool) {
+      getter = "(" + getter + " ~= 0)";
+    }
     code += std::string(Indent) + Indent + "return " + getter + "\n";
     code += std::string(Indent) + End;
     std::string default_value;
@@ -497,31 +498,34 @@ class LuaGenerator : public BaseGenerator {
       }
     } else {
       switch (field.value.type.base_type) {
-        case BASE_TYPE_STRUCT:
-          if (struct_def.fixed) {
-            GetStructFieldOfStruct(struct_def, field, code_ptr);
-          } else {
-            GetStructFieldOfTable(struct_def, field, code_ptr);
-          }
-          break;
-        case BASE_TYPE_STRING:
-          GetStringField(struct_def, field, code_ptr);
-          break;
-        case BASE_TYPE_VECTOR: {
-          auto vectortype = field.value.type.VectorType();
-          if (vectortype.base_type == BASE_TYPE_STRUCT) {
-            GetMemberOfVectorOfStruct(struct_def, field, code_ptr);
-          } else {
-            GetMemberOfVectorOfNonStruct(struct_def, field, code_ptr);
-            if (vectortype.base_type == BASE_TYPE_CHAR ||
-                vectortype.base_type == BASE_TYPE_UCHAR) {
-              AccessByteVectorAsString(struct_def, field, code_ptr);
-            }
-          }
-          break;
+      case BASE_TYPE_STRUCT:
+        if (struct_def.fixed) {
+          GetStructFieldOfStruct(struct_def, field, code_ptr);
+        } else {
+          GetStructFieldOfTable(struct_def, field, code_ptr);
         }
-        case BASE_TYPE_UNION: GetUnionField(struct_def, field, code_ptr); break;
-        default: FLATBUFFERS_ASSERT(0);
+        break;
+      case BASE_TYPE_STRING:
+        GetStringField(struct_def, field, code_ptr);
+        break;
+      case BASE_TYPE_VECTOR: {
+        auto vectortype = field.value.type.VectorType();
+        if (vectortype.base_type == BASE_TYPE_STRUCT) {
+          GetMemberOfVectorOfStruct(struct_def, field, code_ptr);
+        } else {
+          GetMemberOfVectorOfNonStruct(struct_def, field, code_ptr);
+          if (vectortype.base_type == BASE_TYPE_CHAR ||
+              vectortype.base_type == BASE_TYPE_UCHAR) {
+            AccessByteVectorAsString(struct_def, field, code_ptr);
+          }
+        }
+        break;
+      }
+      case BASE_TYPE_UNION:
+        GetUnionField(struct_def, field, code_ptr);
+        break;
+      default:
+        FLATBUFFERS_ASSERT(0);
       }
     }
     if (IsVector(field.value.type)) {
@@ -536,7 +540,8 @@ class LuaGenerator : public BaseGenerator {
     for (auto it = struct_def.fields.vec.begin();
          it != struct_def.fields.vec.end(); ++it) {
       auto &field = **it;
-      if (field.deprecated) continue;
+      if (field.deprecated)
+        continue;
 
       auto offset = it - struct_def.fields.vec.begin();
       BuildFieldOfTable(struct_def, field, offset, code_ptr);
@@ -550,7 +555,8 @@ class LuaGenerator : public BaseGenerator {
 
   // Generate struct or table methods.
   void GenStruct(const StructDef &struct_def, std::string *code_ptr) {
-    if (struct_def.generated) return;
+    if (struct_def.generated)
+      return;
 
     GenComment(struct_def.doc_comment, code_ptr, &def_comment);
     BeginClass(struct_def, code_ptr);
@@ -569,7 +575,8 @@ class LuaGenerator : public BaseGenerator {
     for (auto it = struct_def.fields.vec.begin();
          it != struct_def.fields.vec.end(); ++it) {
       auto &field = **it;
-      if (field.deprecated) continue;
+      if (field.deprecated)
+        continue;
 
       GenStructAccessor(struct_def, field, code_ptr);
     }
@@ -585,7 +592,8 @@ class LuaGenerator : public BaseGenerator {
 
   // Generate enum declarations.
   void GenEnum(const EnumDef &enum_def, std::string *code_ptr) {
-    if (enum_def.generated) return;
+    if (enum_def.generated)
+      return;
 
     GenComment(enum_def.doc_comment, code_ptr, &def_comment);
     BeginEnum(NormalizedName(enum_def), code_ptr);
@@ -600,12 +608,15 @@ class LuaGenerator : public BaseGenerator {
   // Returns the function name that is able to read a value of the given type.
   std::string GenGetter(const Type &type) {
     switch (type.base_type) {
-      case BASE_TYPE_STRING: return std::string(SelfData) + ":String(";
-      case BASE_TYPE_UNION: return std::string(SelfData) + ":Union(";
-      case BASE_TYPE_VECTOR: return GenGetter(type.VectorType());
-      default:
-        return std::string(SelfData) + ":Get(flatbuffers.N." +
-               ConvertCase(GenTypeGet(type), Case::kUpperCamel) + ", ";
+    case BASE_TYPE_STRING:
+      return std::string(SelfData) + ":String(";
+    case BASE_TYPE_UNION:
+      return std::string(SelfData) + ":Union(";
+    case BASE_TYPE_VECTOR:
+      return GenGetter(type.VectorType());
+    default:
+      return std::string(SelfData) + ":Get(flatbuffers.N." +
+             ConvertCase(GenTypeGet(type), Case::kUpperCamel) + ", ";
     }
   }
 
@@ -631,12 +642,16 @@ class LuaGenerator : public BaseGenerator {
 
   std::string GenTypePointer(const Type &type) {
     switch (type.base_type) {
-      case BASE_TYPE_STRING: return "string";
-      case BASE_TYPE_VECTOR: return GenTypeGet(type.VectorType());
-      case BASE_TYPE_STRUCT: return type.struct_def->name;
-      case BASE_TYPE_UNION:
-        // fall through
-      default: return "*flatbuffers.Table";
+    case BASE_TYPE_STRING:
+      return "string";
+    case BASE_TYPE_VECTOR:
+      return GenTypeGet(type.VectorType());
+    case BASE_TYPE_STRUCT:
+      return type.struct_def->name;
+    case BASE_TYPE_UNION:
+      // fall through
+    default:
+      return "*flatbuffers.Table";
     }
   }
 
@@ -667,20 +682,23 @@ class LuaGenerator : public BaseGenerator {
     EndBuilderBody(code_ptr);
   }
 
-  bool generate() {
-    if (!generateEnums()) return false;
-    if (!generateStructs()) return false;
+  bool generate() override {
+    if (!generateEnums())
+      return false;
+    if (!generateStructs())
+      return false;
     return true;
   }
 
- private:
+private:
   bool generateEnums() {
     for (auto it = parser_.enums_.vec.begin(); it != parser_.enums_.vec.end();
          ++it) {
       auto &enum_def = **it;
       std::string enumcode;
       GenEnum(enum_def, &enumcode);
-      if (!SaveType(enum_def, enumcode, false)) return false;
+      if (!SaveType(enum_def, enumcode, false))
+        return false;
     }
     return true;
   }
@@ -691,7 +709,8 @@ class LuaGenerator : public BaseGenerator {
       auto &struct_def = **it;
       std::string declcode;
       GenStruct(struct_def, &declcode);
-      if (!SaveType(struct_def, declcode, true)) return false;
+      if (!SaveType(struct_def, declcode, true))
+        return false;
     }
     return true;
   }
@@ -710,12 +729,14 @@ class LuaGenerator : public BaseGenerator {
   // Save out the generated code for a Lua Table type.
   bool SaveType(const Definition &def, const std::string &classcode,
                 bool needs_imports) {
-    if (!classcode.length()) return true;
+    if (!classcode.length())
+      return true;
 
     std::string namespace_dir = path_;
     auto &namespaces = def.defined_namespace->components;
     for (auto it = namespaces.begin(); it != namespaces.end(); ++it) {
-      if (it != namespaces.begin()) namespace_dir += kPathSeparator;
+      if (it != namespaces.begin())
+        namespace_dir += kPathSeparator;
       namespace_dir += *it;
       // std::string init_py_filename = namespace_dir + "/__init__.py";
       // SaveFile(init_py_filename.c_str(), "", false);
@@ -732,11 +753,11 @@ class LuaGenerator : public BaseGenerator {
     return SaveFile(filename.c_str(), code, false);
   }
 
- private:
+private:
   std::unordered_set<std::string> keywords_;
 };
 
-}  // namespace lua
+} // namespace lua
 
 bool GenerateLua(const Parser &parser, const std::string &path,
                  const std::string &file_name) {
@@ -744,4 +765,4 @@ bool GenerateLua(const Parser &parser, const std::string &path,
   return generator.generate();
 }
 
-}  // namespace flatbuffers
+} // namespace flatbuffers

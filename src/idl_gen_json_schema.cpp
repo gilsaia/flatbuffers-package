@@ -24,7 +24,7 @@ namespace flatbuffers {
 
 namespace jsons {
 
-template<class T> std::string GenFullName(const T *enum_def) {
+template <class T> std::string GenFullName(const T *enum_def) {
   std::string full_name;
   const auto &name_spaces = enum_def->defined_namespace->components;
   for (auto ns = name_spaces.cbegin(); ns != name_spaces.cend(); ++ns) {
@@ -34,7 +34,7 @@ template<class T> std::string GenFullName(const T *enum_def) {
   return full_name;
 }
 
-template<class T> std::string GenTypeRef(const T *enum_def) {
+template <class T> std::string GenTypeRef(const T *enum_def) {
   return "\"$ref\" : \"#/definitions/" + GenFullName(enum_def) + "\"";
 }
 
@@ -44,49 +44,56 @@ std::string GenType(const std::string &name) {
 
 std::string GenType(BaseType type) {
   switch (type) {
-    case BASE_TYPE_BOOL: return "\"type\" : \"boolean\"";
-    case BASE_TYPE_CHAR:
-      return "\"type\" : \"integer\", \"minimum\" : " +
-             NumToString(std::numeric_limits<int8_t>::min()) +
-             ", \"maximum\" : " +
-             NumToString(std::numeric_limits<int8_t>::max());
-    case BASE_TYPE_UCHAR:
-      return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" :" +
-             NumToString(std::numeric_limits<uint8_t>::max());
-    case BASE_TYPE_SHORT:
-      return "\"type\" : \"integer\", \"minimum\" : " +
-             NumToString(std::numeric_limits<int16_t>::min()) +
-             ", \"maximum\" : " +
-             NumToString(std::numeric_limits<int16_t>::max());
-    case BASE_TYPE_USHORT:
-      return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" : " +
-             NumToString(std::numeric_limits<uint16_t>::max());
-    case BASE_TYPE_INT:
-      return "\"type\" : \"integer\", \"minimum\" : " +
-             NumToString(std::numeric_limits<int32_t>::min()) +
-             ", \"maximum\" : " +
-             NumToString(std::numeric_limits<int32_t>::max());
-    case BASE_TYPE_UINT:
-      return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" : " +
-             NumToString(std::numeric_limits<uint32_t>::max());
-    case BASE_TYPE_LONG:
-      return "\"type\" : \"integer\", \"minimum\" : " +
-             NumToString(std::numeric_limits<int64_t>::min()) +
-             ", \"maximum\" : " +
-             NumToString(std::numeric_limits<int64_t>::max());
-    case BASE_TYPE_ULONG:
-      return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" : " +
-             NumToString(std::numeric_limits<uint64_t>::max());
-    case BASE_TYPE_FLOAT:
-    case BASE_TYPE_DOUBLE: return "\"type\" : \"number\"";
-    case BASE_TYPE_STRING: return "\"type\" : \"string\"";
-    default: return "";
+  case BASE_TYPE_BOOL:
+    return "\"type\" : \"boolean\"";
+  case BASE_TYPE_CHAR:
+    return "\"type\" : \"integer\", \"minimum\" : " +
+           NumToString(std::numeric_limits<int8_t>::min()) +
+           ", \"maximum\" : " + NumToString(std::numeric_limits<int8_t>::max());
+  case BASE_TYPE_UCHAR:
+    return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" :" +
+           NumToString(std::numeric_limits<uint8_t>::max());
+  case BASE_TYPE_SHORT:
+    return "\"type\" : \"integer\", \"minimum\" : " +
+           NumToString(std::numeric_limits<int16_t>::min()) +
+           ", \"maximum\" : " +
+           NumToString(std::numeric_limits<int16_t>::max());
+  case BASE_TYPE_USHORT:
+    return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" : " +
+           NumToString(std::numeric_limits<uint16_t>::max());
+  case BASE_TYPE_INT:
+    return "\"type\" : \"integer\", \"minimum\" : " +
+           NumToString(std::numeric_limits<int32_t>::min()) +
+           ", \"maximum\" : " +
+           NumToString(std::numeric_limits<int32_t>::max());
+  case BASE_TYPE_UINT:
+    return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" : " +
+           NumToString(std::numeric_limits<uint32_t>::max());
+  case BASE_TYPE_LONG:
+    return "\"type\" : \"integer\", \"minimum\" : " +
+           NumToString(std::numeric_limits<int64_t>::min()) +
+           ", \"maximum\" : " +
+           NumToString(std::numeric_limits<int64_t>::max());
+  case BASE_TYPE_ULONG:
+    return "\"type\" : \"integer\", \"minimum\" : 0, \"maximum\" : " +
+           NumToString(std::numeric_limits<uint64_t>::max());
+  case BASE_TYPE_FLOAT:
+  case BASE_TYPE_DOUBLE:
+    return "\"type\" : \"number\"";
+  case BASE_TYPE_STRING:
+    return "\"type\" : \"string\"";
+  default:
+    return "";
   }
 }
 
 std::string GenBaseType(const Type &type) {
-  if (type.struct_def != nullptr) { return GenTypeRef(type.struct_def); }
-  if (type.enum_def != nullptr) { return GenTypeRef(type.enum_def); }
+  if (type.struct_def != nullptr) {
+    return GenTypeRef(type.struct_def);
+  }
+  if (type.enum_def != nullptr) {
+    return GenTypeRef(type.enum_def);
+  }
   return GenType(type.base_type);
 }
 
@@ -105,42 +112,46 @@ std::string GenArrayType(const Type &type) {
 
 std::string GenType(const Type &type) {
   switch (type.base_type) {
-    case BASE_TYPE_ARRAY: FLATBUFFERS_FALLTHROUGH();  // fall thru
-    case BASE_TYPE_VECTOR: {
-      return GenArrayType(type);
-    }
-    case BASE_TYPE_STRUCT: {
-      return GenTypeRef(type.struct_def);
-    }
-    case BASE_TYPE_UNION: {
-      std::string union_type_string("\"anyOf\": [");
-      const auto &union_types = type.enum_def->Vals();
-      for (auto ut = union_types.cbegin(); ut < union_types.cend(); ++ut) {
-        const auto &union_type = *ut;
-        if (union_type->union_type.base_type == BASE_TYPE_NONE) { continue; }
-        if (union_type->union_type.base_type == BASE_TYPE_STRUCT) {
-          union_type_string.append(
-              "{ " + GenTypeRef(union_type->union_type.struct_def) + " }");
-        }
-        if (union_type != *type.enum_def->Vals().rbegin()) {
-          union_type_string.append(",");
-        }
+  case BASE_TYPE_ARRAY:
+    FLATBUFFERS_FALLTHROUGH(); // fall thru
+  case BASE_TYPE_VECTOR: {
+    return GenArrayType(type);
+  }
+  case BASE_TYPE_STRUCT: {
+    return GenTypeRef(type.struct_def);
+  }
+  case BASE_TYPE_UNION: {
+    std::string union_type_string("\"anyOf\": [");
+    const auto &union_types = type.enum_def->Vals();
+    for (auto ut = union_types.cbegin(); ut < union_types.cend(); ++ut) {
+      const auto &union_type = *ut;
+      if (union_type->union_type.base_type == BASE_TYPE_NONE) {
+        continue;
       }
-      union_type_string.append("]");
-      return union_type_string;
+      if (union_type->union_type.base_type == BASE_TYPE_STRUCT) {
+        union_type_string.append(
+            "{ " + GenTypeRef(union_type->union_type.struct_def) + " }");
+      }
+      if (union_type != *type.enum_def->Vals().rbegin()) {
+        union_type_string.append(",");
+      }
     }
-    case BASE_TYPE_UTYPE: return GenTypeRef(type.enum_def);
-    default: {
-      return GenBaseType(type);
-    }
+    union_type_string.append("]");
+    return union_type_string;
+  }
+  case BASE_TYPE_UTYPE:
+    return GenTypeRef(type.enum_def);
+  default: {
+    return GenBaseType(type);
+  }
   }
 }
 
 class JsonSchemaGenerator : public BaseGenerator {
- private:
+private:
   std::string code_;
 
- public:
+public:
   JsonSchemaGenerator(const Parser &parser, const std::string &path,
                       const std::string &file_name)
       : BaseGenerator(parser, path, file_name, "", "", "json") {}
@@ -166,8 +177,8 @@ class JsonSchemaGenerator : public BaseGenerator {
     return std::string(num_spaces, ' ');
   }
 
-  std::string PrepareDescription(
-      const std::vector<std::string> &comment_lines) {
+  std::string
+  PrepareDescription(const std::vector<std::string> &comment_lines) {
     std::string comment;
     for (auto line_iterator = comment_lines.cbegin();
          line_iterator != comment_lines.cend(); ++line_iterator) {
@@ -186,7 +197,8 @@ class JsonSchemaGenerator : public BaseGenerator {
         comment.append(comment_line);
       }
 
-      if (line_iterator + 1 != comment_lines.cend()) comment.append("\n");
+      if (line_iterator + 1 != comment_lines.cend())
+        comment.append("\n");
     }
     if (!comment.empty()) {
       std::string description;
@@ -199,7 +211,7 @@ class JsonSchemaGenerator : public BaseGenerator {
     return "";
   }
 
-  bool generate() {
+  bool generate() override {
     code_ = "";
     if (parser_.root_struct_def_ == nullptr) {
       std::cerr << "Error: Binary schema not generated, no root struct found\n";
@@ -218,11 +230,13 @@ class JsonSchemaGenerator : public BaseGenerator {
       for (auto enum_value = (*e)->Vals().begin();
            enum_value != (*e)->Vals().end(); ++enum_value) {
         enumdef.append("\"" + (*enum_value)->name + "\"");
-        if (*enum_value != (*e)->Vals().back()) { enumdef.append(", "); }
+        if (*enum_value != (*e)->Vals().back()) {
+          enumdef.append(", ");
+        }
       }
       enumdef.append("]");
       code_ += enumdef + NewLine();
-      code_ += Indent(2) + "}," + NewLine();  // close type
+      code_ += Indent(2) + "}," + NewLine(); // close type
     }
     for (auto s = parser_.structs_.vec.cbegin();
          s != parser_.structs_.vec.cend(); ++s) {
@@ -264,10 +278,12 @@ class JsonSchemaGenerator : public BaseGenerator {
         }
 
         typeLine += NewLine() + Indent(7) + "}";
-        if (property != properties.back()) { typeLine.append(","); }
+        if (property != properties.back()) {
+          typeLine.append(",");
+        }
         code_ += typeLine + NewLine();
       }
-      code_ += Indent(3) + "}," + NewLine();  // close properties
+      code_ += Indent(3) + "}," + NewLine(); // close properties
 
       std::vector<FieldDef *> requiredProperties;
       std::copy_if(properties.begin(), properties.end(),
@@ -287,16 +303,18 @@ class JsonSchemaGenerator : public BaseGenerator {
       }
       code_ += Indent(3) + "\"additionalProperties\" : false" + NewLine();
       auto closeType(Indent(2) + "}");
-      if (*s != parser_.structs_.vec.back()) { closeType.append(","); }
-      code_ += closeType + NewLine();  // close type
+      if (*s != parser_.structs_.vec.back()) {
+        closeType.append(",");
+      }
+      code_ += closeType + NewLine(); // close type
     }
-    code_ += Indent(1) + "}," + NewLine();  // close definitions
+    code_ += Indent(1) + "}," + NewLine(); // close definitions
 
     // mark root type
     code_ += Indent(1) + "\"$ref\" : \"#/definitions/" +
              GenFullName(parser_.root_struct_def_) + "\"" + NewLine();
 
-    code_ += "}" + NewLine();  // close schema root
+    code_ += "}" + NewLine(); // close schema root
     return true;
   }
 
@@ -307,19 +325,23 @@ class JsonSchemaGenerator : public BaseGenerator {
 
   const std::string getJson() { return code_; }
 };
-}  // namespace jsons
+} // namespace jsons
 
 bool GenerateJsonSchema(const Parser &parser, const std::string &path,
                         const std::string &file_name) {
   jsons::JsonSchemaGenerator generator(parser, path, file_name);
-  if (!generator.generate()) { return false; }
+  if (!generator.generate()) {
+    return false;
+  }
   return generator.save();
 }
 
 bool GenerateJsonSchema(const Parser &parser, std::string *json) {
   jsons::JsonSchemaGenerator generator(parser, "", "");
-  if (!generator.generate()) { return false; }
+  if (!generator.generate()) {
+    return false;
+  }
   *json = generator.getJson();
   return true;
 }
-}  // namespace flatbuffers
+} // namespace flatbuffers
